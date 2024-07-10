@@ -845,6 +845,37 @@ def benchmark(session: nox.Session):
     _print_performance_report(base_path)
 
 
+@nox.session(python=DEFAULT_PYTHON_VERSION)
+def tpch(session: nox.Session):
+    GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
+    if not GOOGLE_CLOUD_PROJECT:
+        session.error(
+            "Set GOOGLE_CLOUD_PROJECT environment variable to run the TPCH tests."
+        )
+
+    test_sizes = ["1GB", "10GB", "100GB", "1TB", "10TB", "100TB"]
+    default_test_size = test_sizes[0]
+    size_parameter = session.posargs[0] if session.posargs else default_test_size
+    if size_parameter not in test_sizes:
+        session.error(
+            f"Invalid size parameter: {size_parameter}. Valid sizes are: {', '.join(test_sizes)}"
+        )
+    session.install("-e", ".[all]")
+    base_path = os.path.join("scripts", "benchmark","tpch")
+
+    benchmark_script_list = list(Path(base_path).rglob("*.py"))
+
+    for benchmark_script in benchmark_script_list:
+        session.run(
+            "python",
+            benchmark_script,
+            "--size",
+            size_parameter,
+            env={LOGGING_NAME_ENV_VAR: benchmark_script.as_posix()},
+        )
+    _print_performance_report(base_path)
+
+
 def _print_performance_report(path: str):
     """Add an informational report about http queries, bytes
     processed, and slot time to the testlog output for purposes
