@@ -250,19 +250,39 @@ def start_query_with_client(
     else:
         results_iterator = query_job.result(max_results=max_results)
 
-    stats = get_performance_stats(query_job)
+    stats = get_performance_stats(session,query_job)
     if stats is not None:
-        bytes_processed, slot_millis = stats
+        bytes_processed, slot_millis, job_latency = stats
         session._add_bytes_processed(bytes_processed)
         session._add_slot_millis(slot_millis)
+        session._add_job_latency(job_latency)
         if LOGGING_NAME_ENV_VAR in os.environ:
             # when running notebooks via pytest nbmake
-            write_stats_to_disk(bytes_processed, slot_millis)
+            write_stats_to_disk(bytes_processed, slot_millis, job_latency)
 
     return results_iterator, query_job
 
 
-def get_performance_stats(query_job: bigquery.QueryJob) -> Optional[Tuple[int, int]]:
+def get_job_latency(session: bigframes.session.Session, job_id: str) -> int:
+    get_job_latency_sql = f"""
+    SELECT
+        TIMESTAMP_DIFF(end_time, start_time, MILLISECOND) AS latency_ms
+    FROM
+        `region-{session._location}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+    WHERE
+        job_id = '{job_id}'
+    """
+    bq_client: bigquery.Client = session.bqclient
+    query_job = bq_client.query(get_job_latency_sql)
+    result = query_job.result()
+    latency_ms = next(result, None).latency_ms
+    return 0 if latency_ms is None else latency_ms
+
+
+def get_performance_stats(
+    session: bigframes.session.Session,
+    query_job: bigquery.QueryJob
+) -> Optional[Tuple[int, int]]:
     """Parse the query job for performance stats.
 
     Return None if the stats do not reflect real work done in bigquery.
@@ -281,10 +301,13 @@ def get_performance_stats(query_job: bigquery.QueryJob) -> Optional[Tuple[int, i
         # dry run stats are just predictions of the real run
         slot_millis = 0
 
-    return bytes_processed, slot_millis
+    job_id = query_job.job_id
+    job_latency = get_job_latency(session,job_id)
+
+    return bytes_processed, slot_millis, job_latency
 
 
-def write_stats_to_disk(bytes_processed: int, slot_millis: int):
+def write_stats_to_disk(bytes_processed: int, slot_millis: int, job_latency:int):
     """For pytest runs only, log information about the query job
     to a file in order to create a performance report.
     """
@@ -306,6 +329,11 @@ def write_stats_to_disk(bytes_processed: int, slot_millis: int):
     bytes_file = os.path.join(current_directory, test_name + ".slotmillis")
     with open(bytes_file, "a") as f:
         f.write(str(slot_millis) + "\n")
+
+    # store job latency
+    bytes_file = os.path.join(current_directory, test_name + ".joblatency")
+    with open(bytes_file, "a") as f:
+        f.write(str(job_latency) + "\n")
 
 
 def delete_tables_matching_session_id(

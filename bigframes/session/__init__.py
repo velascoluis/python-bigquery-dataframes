@@ -295,6 +295,7 @@ class Session(
         # performance logging
         self._bytes_processed_sum = 0
         self._slot_millis_sum = 0
+        self._job_latency_sum = 0
         self._execution_count = 0
         # Whether this session treats objects as totally ordered.
         # Will expose as feature later, only False for internal testing
@@ -367,6 +368,11 @@ class Session(
         """The sum of all slot time used by bigquery jobs in this session."""
         return self._slot_millis_sum
 
+    @property
+    def job_latency_sum(self):
+        """The sum of all jobs latencies used by bigquery jobs in this session."""
+        return self._job_latency_sum
+
     def _add_bytes_processed(self, amount: int):
         """Increment bytes_processed_sum by amount."""
         self._bytes_processed_sum += amount
@@ -374,6 +380,10 @@ class Session(
     def _add_slot_millis(self, amount: int):
         """Increment slot_millis_sum by amount."""
         self._slot_millis_sum += amount
+
+    def _add_job_latency(self, amount: int):
+        """Increment job_latency by amount."""
+        self._job_latency_sum += amount
 
     def _add_execution(self, amount: int = 1):
         """Increment slot_millis_sum by amount."""

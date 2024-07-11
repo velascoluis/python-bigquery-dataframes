@@ -872,30 +872,43 @@ def _print_performance_report(path: str):
             results_dict[filename] += [total_slot_millis]
         os.remove(millis_report)
 
+    latency_reports = sorted(Path(path).rglob("*.joblatency"))
+    for latency_report in latency_reports:
+        with open(latency_report, "r") as latency_file:
+            filename = latency_report.relative_to(path).with_suffix("")
+            lines = latency_file.read().splitlines()
+            total_latency = sum([int(line) for line in lines])
+            results_dict[filename] += [total_latency]
+        os.remove(latency_report)
+
     cumulative_queries = 0
     cumulative_bytes = 0
     cumulative_slot_millis = 0
+    cumulative_latencies = 0
     for name, results in results_dict.items():
-        if len(results) != 3:
+        if len(results) != 4:
             raise IOError(
                 "Mismatch in performance logging output. "
-                "Expected one .bytesprocessed and one .slotmillis "
-                "file for each notebook."
+                "Expected one .bytesprocessed  one .slotmillis and one .joblatency "
+                "file for each query/notebook."
             )
-        query_count, total_bytes, total_slot_millis = results
+        query_count, total_bytes, total_slot_millis, total_latencies = results
         cumulative_queries += query_count
         cumulative_bytes += total_bytes
         cumulative_slot_millis += total_slot_millis
+        cumulative_latencies += total_latencies
         print(
             f"{name} - query count: {query_count},"
             f" bytes processed sum: {total_bytes},"
-            f" slot millis sum: {total_slot_millis}"
+            f" slot millis sum: {total_slot_millis},"
+            f" latencies sum: {total_latencies}"
         )
 
     print(
         f"---total queries: {cumulative_queries}, "
         f"total bytes: {cumulative_bytes}, "
-        f"total slot millis: {cumulative_slot_millis}---"
+        f"total slot millis: {cumulative_slot_millis}, "
+        f"total latencies: {cumulative_latencies}---"
     )
 
 
