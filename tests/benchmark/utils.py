@@ -21,6 +21,18 @@ import bigframes
 def get_dbbenchmark_configuration():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--project_id",
+        type=str,
+        required=True,
+        help="The BigQuery dataset ID to query.",
+    )
+    parser.add_argument(
+        "--dataset_id",
+        type=str,
+        required=True,
+        help="The BigQuery dataset ID to query.",
+    )
+    parser.add_argument(
         "--table_id",
         type=str,
         required=True,
@@ -38,7 +50,7 @@ def get_dbbenchmark_configuration():
     )
     args = parser.parse_args()
     session = _initialize_session(_str_to_bool(args.ordered))
-    return args.table_id, session, args.benchmark_suffix
+    return args.project_id, args.dataset_id, args.table_id, session, args.benchmark_suffix
 
 
 def get_tpch_configuration():
