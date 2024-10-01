@@ -270,13 +270,6 @@ def publish_to_bigquery(dataframe, notebook, project_name="bigframes-metrics"):
     repo_status = get_repository_status()
     for idx, col in enumerate(repo_status.keys()):
         dataframe.insert(idx, col, repo_status[col])
-    
-    # Convert specific columns to appropriate data types
-    float_columns = ['Bytes_Processed', 'Slot_Millis', 'Local_Execution_Time_Sec', 'BigQuery_Execution_Time_Sec']
-    dataframe[float_columns] = dataframe[float_columns].astype('float64')
-    
-    # Ensure 'Query_Count' is integer
-    dataframe['Query_Count'] = dataframe['Query_Count'].astype('int64')
 
     pandas_gbq.to_gbq(
         dataframe=dataframe,
