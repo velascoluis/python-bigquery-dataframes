@@ -474,3 +474,43 @@ def pdf_chunk_func(src_obj_ref_rt: str, chunk_size: int, overlap_size: int) -> s
 
 
 pdf_chunk_def = FunctionDef(pdf_chunk_func, ["pypdf", "requests", "pypdf[crypto]"])
+
+
+def transcribe_audio_func(src_obj_ref_rt: str, project: str) -> str:
+    import json
+
+    from google.cloud import speech  # type: ignore
+    import requests
+    from requests import adapters
+    import google.auth
+
+    session = requests.Session()
+    session.mount("https://", adapters.HTTPAdapter(max_retries=3))
+
+    src_obj_ref_rt_json = json.loads(src_obj_ref_rt)
+    # src_url = src_obj_ref_rt_json["uri"]["read_url"]
+    src_uri = src_obj_ref_rt_json["objectref"]["uri"]
+    # response = session.get(src_url, timeout=30, stream=True)
+    # response.raise_for_status()
+    # audio_bytes = response.content
+
+    credentials, _ = google.auth.default(quota_project_id=project)
+
+    client = speech.SpeechClient(credentials=credentials)
+    audio = speech.RecognitionAudio(uri=src_uri)
+    config = speech.RecognitionConfig(
+        language_code="en-US",
+        enable_automatic_punctuation=True,
+    )
+    operation = client.long_running_recognize(config=config, audio=audio)
+    response = operation.result()
+    transcript_builder = []
+    for result in response.results:
+        transcript_builder.append(f"\nTranscript: {result.alternatives[0].transcript}")
+        transcript = "".join(transcript_builder)
+    return transcript
+
+
+transcribe_audio_def = FunctionDef(
+    transcribe_audio_func, ["google-cloud-speech", "google-auth", "requests"]
+)

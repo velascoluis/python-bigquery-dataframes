@@ -80,7 +80,8 @@ class BlobAccessor(base.SeriesMethods):
             BigFrames Blob is still under experiments. It may not work and subject to change in the future.
 
         Returns:
-            bigframes.series.Series: JSON metadata of the Blob. Contains fields: content_type, md5_hash, size and updated(time)."""
+            bigframes.series.Series: JSON metadata of the Blob. Contains fields: content_type, md5_hash, size and updated(time).
+        """
         details_json = self._apply_unary_op(ops.obj_fetch_metadata_op).struct.field(
             "details"
         )
@@ -665,3 +666,33 @@ class BlobAccessor(base.SeriesMethods):
 
         res_array = bbq.json_extract_string_array(res)
         return res_array
+
+    def transcribe_audio(
+        self,
+        *,
+        project: str,
+        connection: Optional[str] = None,
+        max_batching_rows: int = 8192,
+        container_cpu: Union[float, int] = 0.33,
+        container_memory: str = "512Mi",
+    ) -> bigframes.series.Series:
+        """Transcribes audio files to text."""
+
+        import bigframes.blob._functions as blob_func
+
+        connection = self._resolve_connection(connection)
+
+        transcribe_audio_udf = blob_func.TransformFunction(
+            blob_func.transcribe_audio_def,
+            session=self._block.session,
+            connection=connection,
+            max_batching_rows=max_batching_rows,
+            container_cpu=container_cpu,
+            container_memory=container_memory,
+        ).udf()
+
+        src_rt = self._get_runtime_json_str(mode="R")
+        df = src_rt.to_frame()
+        df["project"] = project
+        res = df.apply(transcribe_audio_udf, axis=1)
+        return res
